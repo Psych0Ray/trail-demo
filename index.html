@@ -314,7 +314,7 @@ function setIsland(state, k) {
   let w = 126, h = 37, r = 20;
   if (state === 'compact' && k) { w = 176; }
   if (state === 'note' && k) { const m = document.createElement('span'); m.style.cssText = 'position:absolute;visibility:hidden;font:600 17px Figtree'; m.textContent = SIG[k].label; phone.appendChild(m); w = Math.min(388, Math.ceil(m.offsetWidth) + 32 + 10 + 10 + 22); m.remove(); h = 52; r = 26; }
-  if (state === 'open' && k) { w = 388; r = 44; island.style.width = w + 'px'; const inn = island.querySelector('.in'); inn.style.position = 'static'; h = inn.offsetHeight; inn.style.position = ''; }
+  if (state === 'open' && k) { w = 388; r = 44; island.style.width = w + 'px'; const inn = island.querySelector('.in'); inn.style.position = 'static'; inn.style.width = '388px'; h = inn.offsetHeight; inn.style.position = ''; inn.style.width = ''; }
   island.style.width = w + 'px'; island.style.height = h + 'px'; island.style.borderRadius = r + 'px';
   if (html) requestAnimationFrame(() => island.classList.add('show'));
 }
@@ -452,6 +452,11 @@ V.home = () => { const X = [22, 116, 210, 304];
     <div class="a" style="left:12px;top:770px;width:388px;height:100px;border-radius:36px;background:rgba(255,255,255,.2)"></div>` :
     `<div class="a" style="left:24px;top:830px;width:364px;height:52px;border-radius:26px;background:rgba(255,255,255,.92);display:flex;align-items:center;gap:12px;padding:0 18px;color:var(--t2);font-size:17px">${ic('magnifying-glass', 22)}Search</div>`}
   ${DOCK.map(([id, i, bg], k) => appIcon([id, '', i, bg, '#fff'], X[k], ios() ? 788 : 728, false)).join('')}</div>`; };
+V.splash = () => `<div class="scr" style="background:var(--amber);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+  <span class="tile pop" style="width:96px;height:96px;border-radius:28px;background:var(--ink)">${ic('shield-check', 52, C.amber)}</span>
+  <span class="wm" style="font-size:52px;color:var(--ink)">Tr<b style="color:#fff">ai</b>l</span>
+  <span style="font-size:18px;font-weight:500;color:var(--ink);opacity:.8">Know if a video is real</span>
+  <span class="a" style="bottom:64px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500">${ic('lock-simple', 18)}Everything stays on this phone</span></div>`;
 V.onb1 = () => `<div class="scr" style="background:var(--bg)">
   <div class="a wm" style="left:24px;top:${ios() ? 64 : 58}px;font-size:28px">Tr<b>ai</b>l</div>
   <div class="a cover" style="left:24px;top:112px;width:364px;height:400px;border-radius:28px;overflow:hidden;background-image:url(${IMG.flood})">
@@ -574,7 +579,7 @@ function toast(msg) { const t = document.createElement('div'); t.className = 'to
 scr.addEventListener('click', e => {
   if (ios() && S.isl === 'open') setIsland('compact');
   const o = e.target.closest('[data-app-open]');
-  if (o) { const id = o.dataset.appOpen; if (id.startsWith('x-')) return toast('Not part of this demo'); if (id === 'trail') return go(S.setup ? 'onb4' : 'onb1'); return go(id); }
+  if (o) { const id = o.dataset.appOpen; if (id.startsWith('x-')) return toast('Not part of this demo'); if (id === 'trail') { go('splash'); later(() => go(S.setup ? 'onb4' : 'onb1'), 1300); return; } return go(id); }
   const g = e.target.closest('[data-go]'); if (g) { go(g.dataset.go); return; }
   const a = e.target.closest('[data-app]'); if (a) { S.apps[a.dataset.app] = !S.apps[a.dataset.app]; render(true); return; }
   if (e.target.closest('[data-done]')) { S.setup = true; go('home'); }
