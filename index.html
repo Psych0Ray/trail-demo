@@ -205,6 +205,17 @@ svg{display:block;flex:none}
 .kb{animation:kb 24s ease-in-out infinite alternate}
 @keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}
 .toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);z-index:90;background:rgba(14,15,18,.94);color:var(--onDark);padding:12px 18px;border-radius:14px;font-size:15px;white-space:nowrap;animation:fade .2s}
+
+/* coach marks beside the phone */
+.coach{position:absolute;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .35s}
+.coach.on{opacity:1}
+.cring{position:absolute;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;border:2px solid var(--amber);animation:cpulse 1.6s ease-out infinite}
+@keyframes cpulse{0%{box-shadow:0 0 0 0 rgba(242,169,59,.55)}100%{box-shadow:0 0 0 16px rgba(242,169,59,0)}}
+.cline{position:absolute;height:0;border-top:2px dashed rgba(17,19,23,.4)}
+.ccard{position:absolute;width:240px;background:var(--ink);color:#fff;border-radius:18px;padding:14px 16px 16px;font-size:16px;line-height:1.4;box-shadow:0 12px 32px rgba(17,19,23,.22);pointer-events:auto}
+.ccard small{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--amber);margin-bottom:4px}
+.ccard button{position:absolute;right:8px;top:8px;color:var(--onDark2)}
+@media (max-width:900px){.stagewrap{position:relative}.cline{display:none}.ccard{position:fixed;left:12px;right:12px;top:12px;width:auto;z-index:100}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -248,6 +259,7 @@ svg{display:block;flex:none}
         <div class="gb" id="gb"><button aria-label="Go to home screen" style="position:absolute;inset:0"></button><span></span></div>
       </div>
     </div>
+    <div class="coach" id="coach" aria-live="polite"><span class="cline"></span><span class="cring"></span><div class="ccard"><small>${''}</small><span class="ctext"></span><button aria-label="Hide hint">✕</button></div></div>
   </main>
 </div>
 <script>
@@ -616,6 +628,82 @@ function fit() {
   const s = Math.min(1, availW / 412, narrow ? 1 : availH / 915);
   st.style.transform = `scale(${s})`; st.style.margin = `${(915 * s - 915) / 2}px ${(412 * s - 412) / 2}px`;
 }
+
+/* ---------- coach marks: hints beside the phone ---------- */
+S.seen = {}; S.visited = new Set();
+const coach = $('#coach'); coach.querySelector('small').innerHTML = ic('hand-pointing', 14, '#F2A93B') + 'Try this';
+let coachT = null, idleT = null, hideT = null, cur = null;
+function hideCoach() { coach.classList.remove('on'); cur = null; }
+coach.querySelector('button').onclick = () => { hideCoach(); S.seen.dismissedAt = Date.now(); };
+function pickHint() {
+  if (phone.classList.contains('sheet-open')) return {t:'Tap Got it to go back to the video.', el:sheet.querySelector('.btn')};
+  if (phone.classList.contains('shade-open')) {
+    const why = shade.querySelector('[data-why]'); if (why && !S.seen.why) return {t:'Tap See why to read what Trail noticed.', el:why};
+    const tt = shade.querySelector('[data-tile=trail]');
+    if (tt) return {t:!S.setup ? 'Trail isn’t set up yet. Open it from the home screen first.' : S.trail ? 'Tap Trail to pause it. Tap again to turn it back on.' : 'Tap Trail to turn it back on.', el:tt};
+    return null;
+  }
+  switch (S.screen) {
+    case 'home': {
+      if (!S.setup) return {t:'Tap Trail to set it up. It takes about a minute.', el:scr.querySelector('.app[data-app-open=trail]')};
+      const names = {chat:'Open Chats to watch a video forwarded to the family group.', reels:'Open Reels. One reel is AI for fun, the next is a sponsored product video.', videoapp:'Open Videos to see an old video shared as new.', gallery:'Open Gallery to see what happens with a real photo.'};
+      const next = ['chat', 'reels', 'videoapp', 'gallery'].find(a => !S.visited.has(a));
+      if (next) return {t:names[next], el:scr.querySelector(`.app[data-app-open=${next}]`)};
+      return {t:ios() ? 'Swipe down from the top right to pause Trail.' : 'Swipe down from the top to pause Trail.', y:22, x:ios() ? 350 : 206};
+    }
+    case 'splash': return null;
+    case 'onb1': return {t:'Tap Get started.', el:scr.querySelector('[data-go=onb2]')};
+    case 'onb2': return {t:'Untick any app you like, then tap Allow access.', el:scr.querySelector('[data-go=onb3]')};
+    case 'onb3': return {t:'This is the phone asking for permission. Tap Allow.', el:scr.querySelector('[data-go=onb4]')};
+    case 'onb4': return {t:'Tap Done, then open the apps on the home screen one by one.', el:scr.querySelector('[data-done]')};
+    case 'chat': return {t:'Tap the forwarded video to play it.', el:scr.querySelector('[aria-label="Play forwarded video"]')};
+  }
+  if (!S.setup) return {t:'Trail isn’t set up yet, so nothing is checked. Go home and open Trail first.', y:905};
+  if (!S.trail) return {t:ios() ? 'Trail is paused. Swipe down from the top right to turn it on.' : 'Trail is paused. Swipe down from the top to turn it on.', y:22, x:ios() ? 350 : 206};
+  if (!S.sig) return null;
+  const risky = SIG[S.sig].risky;
+  if (ios()) {
+    if (S.isl === 'note') return null;
+    if (S.isl === 'compact' && !S.seen.island) return {t:'Tap the Dynamic Island to see what Trail found.', el:island};
+    if (risky && !S.seen.shade) return {t:'Swipe down from the top left to see Trail’s notification.', y:22, x:70};
+  } else {
+    const sd = sb.querySelector('.sd'); if (!sd) return null;
+    if (risky && !S.seen.shade) return {t:'Trail’s note became this sign. Swipe down from the top, or click the time, to see the notification.', el:sd};
+    if (!risky && !S.seen['q' + S.sig]) { S.seen['q' + S.sig] = 1; return {t:S.sig === 'fun' ? 'AI made for fun only gets this quiet grey sign. No note, no notification.' : 'A real photo only gets a green tick beside the time. Nothing else.', el:sd}; }
+  }
+  if (S.screen === 'reels' && S.reel === 0) return {t:'Scroll down for the next reel.', y:420, x:206};
+  if (!S.seen.pause) return {t:ios() ? 'Swipe down from the top right to pause Trail.' : 'Swipe down from the top to pause Trail.', y:22, x:ios() ? 350 : 206};
+  return {t:'Tap the bar at the bottom to go home and try another app.', y:905, x:206};
+}
+function placeCoach() {
+  if (!cur) return;
+  const wrap = $('#stagewrap').getBoundingClientRect(), pr = phone.getBoundingClientRect(), k = pr.height / 915;
+  let ax, ay;
+  if (cur.el && cur.el.isConnected) { const r = cur.el.getBoundingClientRect(); ax = r.left + r.width / 2; ay = r.top + r.height / 2; }
+  else { ax = pr.left + (cur.x || 206) * k; ay = pr.top + cur.y * k; }
+  const ring = coach.querySelector('.cring'), line = coach.querySelector('.cline'), card = coach.querySelector('.ccard');
+  ring.style.left = (ax - wrap.left) + 'px'; ring.style.top = (ay - wrap.top) + 'px';
+  if (innerWidth <= 900) return;
+  const right = (wrap.right - pr.right) >= (pr.left - wrap.left), cy = Math.max(16, Math.min(wrap.height - card.offsetHeight - 16, ay - wrap.top - card.offsetHeight / 2));
+  const cx = right ? pr.right - wrap.left + 28 : Math.max(8, pr.left - wrap.left - 28 - 240);
+  card.style.left = cx + 'px'; card.style.top = cy + 'px';
+  const x1 = right ? ax - wrap.left + 23 : cx + 240, x2 = right ? cx : ax - wrap.left - 23;
+  line.style.left = Math.min(x1, x2) + 'px'; line.style.width = Math.max(0, Math.abs(x2 - x1)) + 'px'; line.style.top = (ay - wrap.top) + 'px';
+}
+function showCoach(h) { cur = h; coach.querySelector('.ctext').textContent = h.t; coach.classList.add('on'); placeCoach(); clearTimeout(hideT); hideT = setTimeout(hideCoach, 9000); }
+function scheduleCoach(ms = 1200) { clearTimeout(coachT); hideCoach(); coachT = setTimeout(() => { const h = pickHint(); if (h && (h.el ? h.el.isConnected : true)) showCoach(h); }, ms); }
+addEventListener('resize', placeCoach);
+phone.addEventListener('pointerdown', () => { hideCoach(); clearTimeout(idleT); idleT = setTimeout(() => scheduleCoach(0), 14000); }, true);
+island.addEventListener('click', () => { S.seen.island = true; scheduleCoach(900); });
+const PLAY = ['player', 'videoapp', 'reels', 'gallery'];
+const _go = go; go = function (n, o) { _go(n, o); S.visited.add(n); scheduleCoach(PLAY.includes(n) ? 3700 : 1300); };
+const _os = openShade; openShade = function (p) { _os(p); S.seen.shade = true; scheduleCoach(700); };
+const _cs = closeShade; closeShade = function () { _cs(); if (cur || coachT) scheduleCoach(900); };
+const _osh = openSheet; openSheet = function (k) { _osh(k); S.seen.why = true; scheduleCoach(900); };
+const _csh = closeSheet; closeSheet = function () { _csh(); scheduleCoach(1200); };
+const _tt = toggleTrail; toggleTrail = function () { _tt(); if (S.setup) S.seen.pause = true; scheduleCoach(800); };
+const _ar = activateReel; activateReel = function (i, r) { _ar(i, r); scheduleCoach(3700); };
+
 addEventListener('resize', fit); fit();
 go('home');
 </script>
